@@ -10,8 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TARGET_URL: "https://portwatch-vi.xyz"
-      DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
-      DISCORD_CHANNEL_ID: "DEINE_KANAL_ID_HIER"
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
     steps:
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -23,8 +22,8 @@ jobs:
           npm init -y
           npm install playwright
           npx playwright install chromium
-
-      - name: Capture dark mode widget, post new message and delete previous bot message
+          
+- name: Capture dark mode widget with progress bar and send to Discord
         run: |
           node -e '
           const { chromium } = require("playwright");
@@ -41,6 +40,7 @@ jobs:
             const el = page.locator("section.overall-wrap").first();
             await el.waitFor({ state: "visible", timeout: 30000 });
 
+            // Ins Sichtfeld scrollen und Scroll-Events auslösen, falls der Balken beim Scrollen animiert wird
             await el.scrollIntoViewIfNeeded();
             await page.mouse.wheel(0, 200);
             await page.mouse.wheel(0, -200);
@@ -49,52 +49,18 @@ jobs:
             const buf = await el.screenshot({ animations: "allow" });
             await browser.close();
 
-            const headers = {
-              Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`
-            };
-            const baseUrl = `https://discord.com/api/v10/channels/${process.env.DISCORD_CHANNEL_ID}/messages`;
-
-            // 1. Neue Nachricht mit Bild posten
             const form = new FormData();
             form.append("payload_json", JSON.stringify({
               content: "Aktueller Stand (Darkmode)"
             }));
             form.append("file", new Blob([buf], { type: "image/png" }), "widget.png");
 
-            const postRes = await fetch(baseUrl, {
+            const res = await fetch(process.env.DISCORD_WEBHOOK_URL, {
               method: "POST",
-              headers,
               body: form
             });
-            if (!postRes.ok) {
-              throw new Error("Discord post failed: " + postRes.status + " " + await postRes.text());
-            }
-            const createdMsg = await postRes.json();
-
-            // 2. Eigene Bot-User-ID ermitteln
-            const meRes = await fetch("https://discord.com/api/v10/users/@me", { headers });
-            if (!meRes.ok) {
-              throw new Error("Fetching bot user failed: " + meRes.status + " " + await meRes.text());
-            }
-            const me = await meRes.json();
-
-            // 3. Letzte Nachrichten laden und vorherige eigene Bot-Nachrichten löschen
-            const listRes = await fetch(`${baseUrl}?limit=15`, { headers });
-            if (!listRes.ok) {
-              throw new Error("Listing messages failed: " + listRes.status + " " + await listRes.text());
-            }
-            const messages = await listRes.json();
-
-            for (const msg of messages) {
-              if (msg.author && msg.author.id === me.id && msg.id !== createdMsg.id) {
-                const delRes = await fetch(`${baseUrl}/${msg.id}`, {
-                  method: "DELETE",
-                  headers
-                });
-                if (!delRes.ok && delRes.status !== 404) {
-                  console.warn("Could not delete message", msg.id, delRes.status);
-                }
-              }
+            if (!res.ok) {
+              throw new Error("Discord webhook failed: " + res.status + " " + await res.text());
             }
           })();
           '
