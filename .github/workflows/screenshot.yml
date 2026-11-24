@@ -40,8 +40,11 @@ jobs:
             const el = page.locator("section.overall-wrap").first();
             await el.waitFor({ state: "visible", timeout: 30000 });
 
-            // Kurz warten, damit Fortschrittsbalken, Avatare und Animationen fertig sind
-            await page.waitForTimeout(3000);
+            // Ins Sichtfeld scrollen und Scroll-Events auslösen, falls der Balken beim Scrollen animiert wird
+            await el.scrollIntoViewIfNeeded();
+            await page.mouse.wheel(0, 200);
+            await page.mouse.wheel(0, -200);
+            await page.waitForTimeout(5000);
 
             const buf = await el.screenshot({ animations: "allow" });
             await browser.close();
