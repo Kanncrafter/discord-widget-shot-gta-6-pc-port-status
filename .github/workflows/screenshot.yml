@@ -23,22 +23,32 @@ jobs:
           npm install playwright
           npx playwright install chromium
 
-      - name: Capture section.overall-wrap and send to Discord
+      - name: Capture dark mode widget with progress bar and send to Discord
         run: |
           node -e '
           const { chromium } = require("playwright");
           (async () => {
             const browser = await chromium.launch();
-            const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+            const page = await browser.newPage({
+              viewport: { width: 1440, height: 900 },
+              colorScheme: "dark"
+            });
+
+            await page.emulateMedia({ colorScheme: "dark" });
             await page.goto(process.env.TARGET_URL, { waitUntil: "networkidle", timeout: 60000 });
+
             const el = page.locator("section.overall-wrap").first();
             await el.waitFor({ state: "visible", timeout: 30000 });
-            const buf = await el.screenshot();
+
+            // Kurz warten, damit Fortschrittsbalken, Avatare und Animationen fertig sind
+            await page.waitForTimeout(3000);
+
+            const buf = await el.screenshot({ animations: "allow" });
             await browser.close();
 
             const form = new FormData();
             form.append("payload_json", JSON.stringify({
-              content: "Aktueller Stand (`section.overall-wrap`)"
+              content: "Aktueller Stand (Darkmode)"
             }));
             form.append("file", new Blob([buf], { type: "image/png" }), "widget.png");
 
