@@ -51,7 +51,7 @@ jobs:
 
             const form = new FormData();
             form.append("payload_json", JSON.stringify({
-              content: "Aktueller Stand (Darkmode)"
+              content: "Aktueller Stand"
             }));
             form.append("file", new Blob([buf], { type: "image/png" }), "widget.png");
 
